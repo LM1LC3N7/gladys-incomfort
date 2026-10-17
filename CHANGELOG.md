@@ -10,6 +10,8 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-17
+
 ### Added
 
 - First version, never tested on a real gateway: Intergas boilers through the
@@ -27,4 +29,5 @@ the notes of the version's GitHub Release.
   30 s to 10 min; credentials refused: no retry until the user acts.
 - Button "Test the connection".
 
-[Unreleased]: https://github.com/LM1LC3N7/gladys-incomfort/commits/main
+[Unreleased]: https://github.com/LM1LC3N7/gladys-incomfort/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/LM1LC3N7/gladys-incomfort/releases/tag/v0.1.1

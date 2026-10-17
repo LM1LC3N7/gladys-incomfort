@@ -1,6 +1,6 @@
 {
   "name": "gladys-incomfort",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Gladys Assistant external integration for Intergas boilers through the local Lan2RF (InComfort) gateway: boiler temperatures, pressure, status and room thermostats. Unofficial, not affiliated with Intergas.",
   "type": "module",

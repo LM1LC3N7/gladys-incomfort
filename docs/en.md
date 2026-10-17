@@ -1,61 +1,104 @@
-# Demo Devices Template
+# InComfort (Intergas)
 
-This is the user documentation of the integration. Gladys re-hosts this file
-and shows a permanent **Documentation** link to it in the Configuration screen
-(in the user's language, with English as the fallback) — it is when
-configuring that the user needs it most. Keep the short onboarding hints in
-the `section` blocks of the manifest `config_schema`; put the long
-step-by-step (screenshots, troubleshooting…) here.
+Your Intergas boilers in Gladys, through the local **Lan2RF** gateway
+(InComfort / InTouch) on your network, without any cloud:
 
-## What you get
+- each boiler bound to the gateway becomes a Gladys device: **heating water
+  temperature**, **pressure** (bar), **hot water temperature**, **burner on**,
+  **pump on**, **hot water drawn**, **fault (lockout)**, and in words its
+  **status** (standby, central heating, hot water…) and its **fault** (`E…`
+  code and label);
+- each room thermostat (two at most per boiler) becomes a device with the
+  **room temperature**, the **setpoint** and **heating** (burner and pump on).
 
-Six demo devices show up after installation: a weather station (real data
-from Open-Meteo), a switch, a dimmable light, a smart plug with power
-metering, a motion sensor and a camera.
+> **This integration has never been tested on a real gateway.** This first
+> version was written from the incomfort-client library and the incomfort
+> integration of Home Assistant, and tested only against a fake gateway.
+> Tell on the Gladys forum what works and what does not.
+
+Unofficial integration, not affiliated with Intergas.
 
 ## Configuration
 
-1. Open the **Configuration** tab of the integration.
-2. Set the **latitude** and **longitude** the demo weather station should
-   observe (they default to Paris), and pick your temperature unit.
-   The **refresh interval** sets how often the weather station and the
-   plug's power are read: every 5 minutes by default, every minute at most.
-3. Save: the devices appear in the **Discovery** tab, ready to be added.
+- **Gateway address**: its IP address on your network (`192.168.1.20`), or
+  its name; a port may follow (`192.168.1.20:80`). Give it a fixed address in
+  your router. The gateway only speaks plain http: an `https://` address is
+  refused with a clear message.
+- **User name** and **password**: leave them empty for an older gateway.
+  Newer gateways ask for those printed on their label or in their manual;
+  Gladys then uses the `/protect/` pages of the gateway. The password is kept
+  by Gladys in its database, never shown again, sent only to the gateway, in
+  the HTTP authentication header (never in an address, never in a log).
+  Beware: the gateway has no https, so the user name and password cross your
+  local network in clear, at every reading.
+- **Allow changing the room setpoint**: off by default (see Command).
+- **Language of the devices**: French (default) or English, for the device
+  names and the status and fault texts.
 
-The **Prefer the local connection** toggle drives the demo plug: it reports
-the channel it actually uses as a badge (local or cloud), with an orange dot
-when it runs degraded (local refused, cloud fallback).
+Then open the **Discovery** tab and create the boilers and thermostats to
+follow. The **Test the connection** button reads the gateway right away and
+lists what it sees.
 
-## Actions
+## Command
 
-- **Test the weather provider** — performs a live request to Open-Meteo and
-  shows the current temperature and humidity under the button.
-- **Identify a device** — pick one of your devices in the list and it will
-  signal itself (the demo light "blinks" in the logs).
+- **Only the room setpoint** can be changed, and only once **Allow changing
+  the room setpoint** is ticked. Nothing commands the hot water, the boiler
+  or its power: no feature is a switch, so neither a voice assistant nor
+  "turn everything off" can act on the boiler.
+- The setpoint goes from **5 to 30 °C** (the bounds of the gateway), to a
+  tenth of a degree: a value outside is refused, never clamped.
+- Just before acting, Gladys reads the boiler list and the boiler again: when
+  the reading fails, the boiler is no longer bound or the thermostat no longer
+  answers, nothing is sent; when the setpoint is already the one asked,
+  nothing is sent either. When the command cannot be checked within 3.5 s,
+  nothing is sent and Gladys shows a failure (never an action after a failure
+  was shown). Once sent, Gladys answers at most 4.3 s after your command; the
+  setpoint shown follows the answer of the gateway.
+- Commands run one after the other (one gateway).
+- The setpoint shown is, like in Home Assistant, the setpoint sent remotely
+  when there is one, else the thermostat's own. The thermostat gets the
+  setpoint by radio: it may take a moment to show there. Some older
+  thermostats keep the remote setpoint even after a change by hand: the
+  setpoint shown in Gladys may then stay the old one.
 
-## Scenes
+## Refresh and limits
 
-The integration adds its own cards to the scene editor (Gladys 5.1 or
-later), under the **Integrations** category:
+- The gateway is read every **30 seconds**: the boiler list, then each boiler
+  (its thermostats come with it). States are up to 30 seconds late. Only the
+  values that change are sent to Gladys (and each one at least every 30
+  minutes).
+- A boiler that does not answer makes only its own devices unreachable; the
+  others go on.
+- The water temperatures (heating water, hot water) are probes: Gladys keeps
+  them out of the temperature of the room the boiler is in.
+- A Lan2RF gateway handles 8 boilers at most, 2 room thermostats per boiler.
+  A thermostat shows up only once the gateway gives a valid temperature for
+  it.
+- Boilers are recognised by their **serial number** (the one the gateway
+  lists), not by their position in the list: a boiler that moves keeps its
+  device, its history and its scenes.
 
-- **Motion detected** (trigger) — starts the scene when a demo motion sensor
-  sees something move. Optionally pick the sensor and what moved (person,
-  animal); left empty, any detection matches. The following actions can
-  read what moved with `{{triggerEvent.data.target}}`.
-- **Identify a device** (action) — makes the chosen device signal itself.
-  It returns whether the device could signal itself, so the following
-  actions can depend on it.
+## Connection problems
 
-## Dashboard
+- **Gateway unreachable**: every device shows unreachable; retried after
+  30 s, then less and less often up to every 10 min (never faster than the
+  normal reading).
+- **Credentials asked or refused** (HTTP 401): Gladys does not try again by
+  itself, not even after a reconnection to Gladys. Fix the user name and
+  password and save, or press **Test the connection**. A restart of the
+  integration makes one new try.
+- **HTTP 404 with a user name**: the gateway is an older one without
+  protected pages: clear the user name and the password.
+- **Gateway overloaded** (HTTP 429): every request stops for 1 minute to 6
+  hours; saving the configuration or pressing **Test the connection** lifts
+  the pause.
+- The logs hold neither the password nor the text of the gateway's answers,
+  only codes (HTTP 500, no connection…).
 
-Add the **Demo status** widget to a dashboard: it shows the live
-temperature of the weather station and the power of the office plug, the
-connection the plug currently uses (orange when degraded) and the observed
-location. Its **Identify the light** button makes the demo light signal
-itself.
+## Limits
 
-## Troubleshooting
-
-The integration logs everything it does: check the integration logs from the
-Gladys UI (or `docker logs` on the host) with `LOG_LEVEL=debug` for the full
-detail.
+- One gateway per integration.
+- No hot water command nor boiler mode: the gateway offers none, and hot
+  water is read only on purpose.
+- Neither the radio signal strength nor the node number are published.
+- Never tested on a real gateway, nor with real credentials.

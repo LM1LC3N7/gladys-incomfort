@@ -1,177 +1,110 @@
 {
   "manifest_version": 1,
   "type": "device",
-  "name": "Demo Devices Template",
+  "name": "InComfort (Intergas)",
   "description": {
-    "en": "Starter template showing sensors, a switch, a dimmable light and a smart plug.",
-    "fr": "Template de démarrage : capteurs, interrupteur, lampe variable et prise connectée."
+    "en": "Intergas boilers through the local Lan2RF gateway: temperatures, pressure, status, rooms.",
+    "fr": "Chaudières Intergas via la passerelle locale Lan2RF : températures, pression, état, pièces."
   },
-  "version": "1.0.0",
-  "docker_image": "ghcr.io/gladysassistant/integration-template-js:1.0.0",
+  "version": "0.1.0",
+  "docker_image": "ghcr.io/lm1lc3n7/gladys-incomfort:0.1.0",
   "gladys_version": ">=5.1.0",
-  "cover_image": "https://raw.githubusercontent.com/GladysAssistant/integration-template-js/master/cover.png",
-  "categories": ["lighting", "security", "environment"],
-  "transports": ["local", "cloud"],
+  "cover_image": "https://raw.githubusercontent.com/LM1LC3N7/gladys-incomfort/main/cover.png",
+  "categories": ["climate"],
+  "transports": ["local"],
   "config_schema": [
     {
       "key": "intro",
       "type": "section",
-      "label": { "en": "Getting started", "fr": "Pour commencer" },
+      "label": { "en": "How it works", "fr": "Fonctionnement" },
       "description": {
-        "en": "The demo weather station reads real data from the free Open-Meteo API: pick the coordinates to observe. No account, no API key.",
-        "fr": "La station météo de démonstration lit de vraies données via l'API gratuite Open-Meteo : choisissez les coordonnées à observer. Pas de compte, pas de clé d'API."
-      },
-      "links": [
-        {
-          "url": "https://open-meteo.com/en/docs",
-          "label": { "en": "Open-Meteo documentation", "fr": "Documentation Open-Meteo" }
-        }
-      ]
+        "en": "Gladys reads your Intergas boilers every 30 seconds through the Lan2RF (InComfort) gateway, on your local network, without any cloud. Each boiler becomes a Gladys device (Discovery tab): heating water temperature, pressure, hot water temperature, burner, pump, hot water, fault, status; each room thermostat becomes a device with its temperature and setpoint. Unofficial integration, not affiliated with Intergas. Never tested on a real gateway: see the documentation.",
+        "fr": "Gladys lit vos chaudières Intergas toutes les 30 secondes par la passerelle Lan2RF (InComfort), sur votre réseau local, sans cloud. Chaque chaudière devient un appareil Gladys (onglet Découverte) : température de l'eau du circuit, pression, température de l'eau chaude, brûleur, pompe, eau chaude, défaut, état ; chaque thermostat de pièce devient un appareil avec sa température et sa consigne. Intégration non officielle, sans lien avec Intergas. Jamais testée sur une vraie passerelle : voir la documentation."
+      }
     },
     {
-      "key": "latitude",
-      "type": "number",
-      "label": { "en": "Latitude", "fr": "Latitude" },
+      "key": "host",
+      "type": "string",
+      "label": { "en": "Gateway address", "fr": "Adresse de la passerelle" },
       "description": {
-        "en": "Latitude used for the demo weather sensor.",
-        "fr": "Latitude utilisée par le capteur météo de démonstration."
+        "en": "The IP address (or name) of the Lan2RF gateway on your network. Give it a fixed address in your router. Plain http: the gateway has no https.",
+        "fr": "L'adresse IP (ou le nom) de la passerelle Lan2RF sur votre réseau. Donnez-lui une adresse fixe dans votre box. En http simple : la passerelle n'a pas de https."
       },
-      "placeholder": { "en": "e.g. 48.8566", "fr": "ex. 48.8566" },
-      "required": true,
-      "default": 48.8566,
-      "min": -90,
-      "max": 90
+      "placeholder": { "en": "e.g. 192.168.1.20", "fr": "ex. 192.168.1.20" },
+      "required": true
     },
     {
-      "key": "longitude",
-      "type": "number",
-      "label": { "en": "Longitude", "fr": "Longitude" },
-      "description": {
-        "en": "Longitude used for the demo weather sensor.",
-        "fr": "Longitude utilisée par le capteur météo de démonstration."
+      "key": "credentials_section",
+      "type": "section",
+      "label": {
+        "en": "Credentials (newer gateways)",
+        "fr": "Identifiants (passerelles récentes)"
       },
-      "placeholder": { "en": "e.g. 2.3522", "fr": "ex. 2.3522" },
-      "required": true,
-      "default": 2.3522,
-      "min": -180,
-      "max": 180
+      "description": {
+        "en": "Older gateways answer without credentials: leave both fields empty. Newer ones ask for a user name and password (those of the gateway, see its label or manual). They go to the gateway in an HTTP header, in clear on your local network (the gateway has no https).",
+        "fr": "Les anciennes passerelles répondent sans identifiants : laissez les deux champs vides. Les récentes demandent un identifiant et un mot de passe (ceux de la passerelle, voir son étiquette ou sa notice). Ils partent vers la passerelle dans un en-tête HTTP, en clair sur votre réseau local (la passerelle n'a pas de https)."
+      }
     },
     {
-      "key": "unit",
+      "key": "username",
+      "type": "string",
+      "label": { "en": "User name (optional)", "fr": "Identifiant (facultatif)" },
+      "required": false
+    },
+    {
+      "key": "password",
+      "type": "secret",
+      "label": { "en": "Password (optional)", "fr": "Mot de passe (facultatif)" },
+      "description": {
+        "en": "Kept by Gladys in its database, never shown again, sent only to the gateway.",
+        "fr": "Gardé par Gladys dans sa base, jamais réaffiché, envoyé seulement à la passerelle."
+      },
+      "required": false
+    },
+    {
+      "key": "options_section",
+      "type": "section",
+      "label": { "en": "Options", "fr": "Options" },
+      "description": {
+        "en": "By default Gladys only reads. Allowing the room setpoint lets Gladys (dashboard, scenes) change the setpoint of the room thermostats, from 5 to 30 °C. Hot water is never commanded.",
+        "fr": "Par défaut Gladys ne fait que lire. Autoriser la consigne de pièce permet à Gladys (tableau de bord, scènes) de changer la consigne des thermostats de pièce, de 5 à 30 °C. L'eau chaude n'est jamais commandée."
+      }
+    },
+    {
+      "key": "allow_setpoint",
+      "type": "boolean",
+      "label": {
+        "en": "Allow changing the room setpoint",
+        "fr": "Autoriser le changement de la consigne de pièce"
+      },
+      "required": false,
+      "default": false
+    },
+    {
+      "key": "language",
       "type": "select",
-      "label": { "en": "Temperature unit", "fr": "Unité de température" },
-      "required": false,
-      "default": "celsius",
-      "options": [
-        { "value": "celsius", "label": { "en": "Celsius", "fr": "Celsius" } },
-        { "value": "fahrenheit", "label": { "en": "Fahrenheit", "fr": "Fahrenheit" } }
-      ]
-    },
-    {
-      "key": "poll_frequency",
-      "type": "number",
-      "label": { "en": "Refresh interval (s)", "fr": "Intervalle de rafraîchissement (s)" },
+      "label": { "en": "Language of the devices", "fr": "Langue des appareils" },
       "description": {
-        "en": "How often sensors are polled, in seconds (one minute minimum).",
-        "fr": "Fréquence d'interrogation des capteurs, en secondes (une minute minimum)."
+        "en": "Names of the devices and features, status and fault texts.",
+        "fr": "Noms des appareils et des fonctionnalités, textes d'état et de défaut."
       },
       "required": false,
-      "default": 300,
-      "min": 60,
-      "max": 3600
+      "default": "fr",
+      "options": [
+        { "value": "fr", "label": { "en": "French", "fr": "Français" } },
+        { "value": "en", "label": { "en": "English", "fr": "Anglais" } }
+      ]
     }
   ],
   "actions": [
     {
-      "key": "test_weather",
-      "label": { "en": "Test the weather provider", "fr": "Tester le fournisseur météo" },
+      "key": "test_connection",
+      "label": { "en": "Test the connection", "fr": "Tester la connexion" },
+      "description": {
+        "en": "Reads the gateway now (even after refused credentials) and lists the boilers and rooms.",
+        "fr": "Lit la passerelle maintenant (même après des identifiants refusés) et liste chaudières et pièces."
+      },
       "timeout_seconds": 30
-    },
-    {
-      "key": "identify",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "fields": [
-        {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
-        }
-      ]
-    }
-  ],
-  "scene_triggers": [
-    {
-      "key": "motion_detected",
-      "label": { "en": "Motion detected", "fr": "Mouvement détecté" },
-      "description": {
-        "en": "A demo motion sensor saw a person or an animal move.",
-        "fr": "Un détecteur de démonstration a vu bouger une personne ou un animal."
-      },
-      "fields": [
-        {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Sensor", "fr": "Détecteur" }
-        },
-        {
-          "key": "target",
-          "type": "multi_select",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" },
-          "options": [
-            { "value": "person", "label": { "en": "Person", "fr": "Personne" } },
-            { "value": "animal", "label": { "en": "Animal", "fr": "Animal" } }
-          ]
-        }
-      ],
-      "variables": [
-        {
-          "key": "target",
-          "type": "string",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" }
-        }
-      ]
-    }
-  ],
-  "scene_actions": [
-    {
-      "key": "identify_device",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "description": {
-        "en": "Make a device signal itself (the demo light blinks).",
-        "fr": "Fait se signaler un appareil (la lampe de démonstration clignote)."
-      },
-      "timeout_seconds": 15,
-      "fields": [
-        {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
-        }
-      ],
-      "outputs": [
-        {
-          "key": "signalled",
-          "type": "boolean",
-          "label": { "en": "Device signalled", "fr": "Appareil signalé" }
-        }
-      ]
-    }
-  ],
-  "widgets": [
-    {
-      "key": "demo_status",
-      "label": { "en": "Demo status", "fr": "État de la démo" },
-      "description": {
-        "en": "Live temperature and plug power, plug connection and observed location.",
-        "fr": "Température et puissance en direct, connexion de la prise, position observée."
-      },
-      "icon": "activity",
-      "action_timeout_seconds": 15
     }
   ]
 }

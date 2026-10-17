@@ -5,8 +5,8 @@ Vos chaudières Intergas dans Gladys, par la passerelle locale **Lan2RF**
 
 - chaque chaudière liée à la passerelle devient un appareil Gladys :
   **température de l'eau du circuit**, **pression** (bar), **température de
-  l'eau chaude sanitaire**, **brûleur allumé**, **pompe en marche**, **eau
-  production d'eau chaude**, **défaut (verrouillage)**, et en texte son **état**
+  l'eau chaude sanitaire**, **brûleur allumé**, **pompe en marche**,
+  **production d'eau chaude**, **défaut (verrouillage)**, et en texte son **état**
   (veille, chauffage, eau chaude…) et son **défaut** (code `E…` et libellé) ;
 - chaque thermostat de pièce (deux au plus par chaudière) devient un appareil
   avec la **température de la pièce**, la **consigne** et **chauffe** (brûleur

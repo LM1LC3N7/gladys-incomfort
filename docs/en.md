@@ -5,7 +5,7 @@ Your Intergas boilers in Gladys, through the local **Lan2RF** gateway
 
 - each boiler bound to the gateway becomes a Gladys device: **heating water
   temperature**, **pressure** (bar), **hot water temperature**, **burner on**,
-  **pump on**, **hot water drawn**, **fault (lockout)**, and in words its
+  **pump on**, **hot water function**, **fault (lockout)**, and in words its
   **status** (standby, central heating, hot water…) and its **fault** (`E…`
   code and label);
 - each room thermostat (two at most per boiler) becomes a device with the
@@ -20,9 +20,10 @@ Unofficial integration, not affiliated with Intergas.
 
 ## Configuration
 
-- **Gateway address**: its IP address on your network (`192.168.1.20`), or
-  its name; a port may follow (`192.168.1.20:80`). Give it a fixed address in
-  your router. The gateway only speaks plain http: an `https://` address is
+- **Gateway address**: its IP address on your network (`192.168.1.20`); a
+  port may follow (`192.168.1.20:80`). Prefer the IP address: a `.local`
+  (mDNS) name does not resolve inside the container of the integration. Give
+  it a fixed address in your router. The gateway only speaks plain http: an `https://` address is
   refused with a clear message.
 - **User name** and **password**: leave them empty for an older gateway.
   Newer gateways ask for those printed on their label or in their manual;
@@ -42,15 +43,17 @@ lists what it sees.
 ## Command
 
 - **Only the room setpoint** can be changed, and only once **Allow changing
-  the room setpoint** is ticked. Nothing commands the hot water, the boiler
-  or its power: no feature is a switch, so neither a voice assistant nor
-  "turn everything off" can act on the boiler.
+  the room setpoint** is ticked. Once ticked, the dashboard, the scenes, the
+  voice assistants (Siri / HomeKit...) and the Thermostat service of Gladys
+  can change the setpoint, from 5 to 30 °C. Nothing turns the boiler on or
+  off and nothing touches the hot water: no feature is a switch, so "turn
+  everything off" cannot act on the boiler.
 - The setpoint goes from **5 to 30 °C** (the bounds of the gateway), to a
   tenth of a degree: a value outside is refused, never clamped.
 - Just before acting, Gladys reads the boiler list and the boiler again: when
   the reading fails, the boiler is no longer bound or the thermostat no longer
-  answers, nothing is sent; when the setpoint is already the one asked,
-  nothing is sent either. When the command cannot be checked within 3.5 s,
+  answers, nothing is sent; when the thermostat is already at this setpoint
+  (and no other remote setpoint is pending), nothing is sent either. When the command cannot be checked within 3.5 s,
   nothing is sent and Gladys shows a failure (never an action after a failure
   was shown). Once sent, Gladys answers at most 4.3 s after your command; the
   setpoint shown follows the answer of the gateway.

@@ -104,7 +104,7 @@ test('the configuration matches the code; the setpoint off by default', () => {
   assert.doesNotMatch(JSON.stringify(manifest), /chiffré|encrypted/i, 'a secret is not encrypted');
   assert.equal(fields.allow_setpoint.type, 'boolean');
   assert.equal(fields.allow_setpoint.default, false);
-  assert.match(fields.options_section.description.en, /Hot water is never commanded/);
+  assert.match(fields.options_section.description.en, /hot water is never commanded/);
 });
 
 test('sections store nothing', () => {

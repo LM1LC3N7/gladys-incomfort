@@ -51,6 +51,20 @@ const TEST_BUDGET_MS = 25_000;
 const TRANSPORTS_PER_CALL = 100;
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const bit = (value) => (value ? 1 : 0);
+const near = (a, b) => a !== null && Math.abs(a - b) < SETPOINT.STEP / 2;
+
+/**
+ * Nothing to send only when the thermostat's own setpoint is already T and
+ * no other override is pending. Not on the shown target: an older
+ * thermostat may keep a stale override after a change by hand (setpoint
+ * 18, override 20: a command of 20 must still be sent).
+ */
+export const alreadySet = (room, temperature) =>
+  near(room.setpoint, temperature) &&
+  (room.override === null ||
+    room.override < SETPOINT.MIN ||
+    room.override > SETPOINT.MAX ||
+    near(room.override, temperature));
 
 export class IncomfortApp {
   /**
@@ -74,6 +88,7 @@ export class IncomfortApp {
     this.now = now;
     this.timers = timers;
     this.budget = new Budget({ perMinute: LIMITS.STATES_PER_MINUTE, now });
+    this.budgetCursor = 0;
     this.rawConfig = {};
     this.config = normalizeConfig();
     this.configKey = null;
@@ -459,8 +474,12 @@ export class IncomfortApp {
     if (list.length === 0) return;
     const remaining = this.budget.remaining();
     if (list.length > remaining) {
+      // In turn: the next cut starts where this one stopped, so no feature
+      // is held back for ever (the SDK skips the unchanged ones anyway).
       this.logger.debug(`${list.length - remaining} state(s) held back (state budget)`);
-      list = list.slice(0, remaining);
+      const start = this.budgetCursor % list.length;
+      list = [...list.slice(start), ...list.slice(0, start)].slice(0, remaining);
+      this.budgetCursor = start + remaining;
     }
     try {
       const result = await this.gladys.publishChangedStates(list, {
@@ -515,17 +534,19 @@ export class IncomfortApp {
     if (parsed?.kind !== 'room' || parsed.feature !== RF.TARGET) {
       throw new Error(T.errors.unknownDevice);
     }
-    const temperature = Math.round(Number(value) * 10) / 10;
+    // The raw value is checked BEFORE rounding: 30.04 and 4.95 are refused.
+    const raw = Number(value);
     if (
       typeof value === 'boolean' ||
       value === null ||
       value === '' ||
-      !Number.isFinite(temperature) ||
-      temperature < SETPOINT.MIN ||
-      temperature > SETPOINT.MAX
+      !Number.isFinite(raw) ||
+      raw < SETPOINT.MIN ||
+      raw > SETPOINT.MAX
     ) {
       throw new Error(T.errors.invalidValue(SETPOINT.MIN, SETPOINT.MAX));
     }
+    const temperature = Math.round(raw * 10) / 10;
     if (!this.config.allowSetpoint) throw new Error(T.errors.controlDisabled);
     const client = this.client;
     if (!client || this.blocked) throw new Error(T.errors.notConnected);
@@ -574,12 +595,15 @@ export class IncomfortApp {
       }
       this.observed(parsed.serial, index, data);
       const room = data.rooms.find((r) => r.number === parsed.number);
+      // States are published without waiting: Gladys must get its answer
+      // within 5 s (a late failure looks like a manual override to the
+      // Thermostat service of the core).
       if (!room) {
-        await this.publishStates();
+        void this.publishStates();
         throw new Error(T.errors.unknownRoom);
       }
-      if (room.target !== null && Math.abs(room.target - temperature) < SETPOINT.STEP / 2) {
-        await this.publishStates();
+      if (alreadySet(room, temperature)) {
+        void this.publishStates();
         return;
       }
       if (deadline - this.now() < COMMAND_MIN_SEND_MS) throw new Error(T.errors.tooSlow);
@@ -617,7 +641,7 @@ export class IncomfortApp {
     if (outcome.done) {
       if (outcome.data) this.observed(parsed.serial, index, outcome.data);
       this.logger.info(`${label} sent`);
-      if (generation === this.generation) await this.publishStates();
+      if (generation === this.generation) void this.publishStates();
       return;
     }
     if (outcome.pending) {
@@ -629,7 +653,11 @@ export class IncomfortApp {
           if (data) this.observed(parsed.serial, index, data);
           await this.publishStates();
         },
-        (err) => this.logger.warn(`${label} not confirmed: ${err?.code ?? 'error'}`),
+        async (err) => {
+          this.logger.warn(`${label} not confirmed: ${err?.code ?? 'error'}`);
+          // A late 401 / 429 still applies to every path.
+          if (generation === this.generation) await this.shared(err, generation);
+        },
       );
       return;
     }
@@ -651,6 +679,11 @@ export class IncomfortApp {
     if (!parseExternalId(this.gladys, device?.external_id) || !this.online) return;
     await this.publishStates();
     await this.publishTransports();
+  }
+
+  async deviceUpdated(device) {
+    this.transports.delete(device?.external_id);
+    await this.deviceCreated(device);
   }
 
   deviceDeleted(device) {

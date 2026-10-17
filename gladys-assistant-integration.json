@@ -66,8 +66,8 @@
       "type": "section",
       "label": { "en": "Options", "fr": "Options" },
       "description": {
-        "en": "By default Gladys only reads. Allowing the room setpoint lets Gladys (dashboard, scenes) change the setpoint of the room thermostats, from 5 to 30 °C. Hot water is never commanded.",
-        "fr": "Par défaut Gladys ne fait que lire. Autoriser la consigne de pièce permet à Gladys (tableau de bord, scènes) de changer la consigne des thermostats de pièce, de 5 à 30 °C. L'eau chaude n'est jamais commandée."
+        "en": "By default Gladys only reads. Once the option below is ticked, the dashboard, the scenes, the voice assistants (Siri / HomeKit...) and the Thermostat service of Gladys can change the setpoint of the room thermostats, from 5 to 30 °C. Nothing ever turns the boiler on or off, and hot water is never commanded.",
+        "fr": "Par défaut Gladys ne fait que lire. Une fois l'option ci-dessous cochée, le tableau de bord, les scènes, les assistants vocaux (Siri / HomeKit…) et le service Thermostat de Gladys peuvent changer la consigne des thermostats de pièce, de 5 à 30 °C. Rien n'allume ni n'éteint jamais la chaudière, et l'eau chaude n'est jamais commandée."
       }
     },
     {

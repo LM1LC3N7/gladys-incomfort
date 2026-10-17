@@ -6,7 +6,7 @@ Vos chaudières Intergas dans Gladys, par la passerelle locale **Lan2RF**
 - chaque chaudière liée à la passerelle devient un appareil Gladys :
   **température de l'eau du circuit**, **pression** (bar), **température de
   l'eau chaude sanitaire**, **brûleur allumé**, **pompe en marche**, **eau
-  chaude en puisage**, **défaut (verrouillage)**, et en texte son **état**
+  production d'eau chaude**, **défaut (verrouillage)**, et en texte son **état**
   (veille, chauffage, eau chaude…) et son **défaut** (code `E…` et libellé) ;
 - chaque thermostat de pièce (deux au plus par chaudière) devient un appareil
   avec la **température de la pièce**, la **consigne** et **chauffe** (brûleur
@@ -23,8 +23,9 @@ Intégration non officielle, sans lien avec Intergas.
 ## Configuration
 
 - **Adresse de la passerelle** : son adresse IP sur votre réseau
-  (`192.168.1.20`), ou son nom ; un port peut suivre (`192.168.1.20:80`).
-  Donnez-lui une adresse fixe dans votre box. La passerelle ne parle qu'en
+  (`192.168.1.20`) ; un port peut suivre (`192.168.1.20:80`). Préférez
+  l'adresse IP : un nom en `.local` (mDNS) ne se résout pas dans le conteneur
+  de l'intégration. Donnez-lui une adresse fixe dans votre box. La passerelle ne parle qu'en
   http simple : une adresse `https://` est refusée avec un message clair.
 - **Identifiant** et **mot de passe** : laissez-les vides pour une ancienne
   passerelle. Les passerelles récentes demandent ceux inscrits sur leur
@@ -46,16 +47,19 @@ tout de suite et liste ce qu'elle voit.
 ## Commande
 
 - **Seule la consigne de pièce** peut être changée, et seulement après avoir
-  coché **Autoriser le changement de la consigne de pièce**. Rien ne commande
-  l'eau chaude, la chaudière ni sa mise en marche : aucune fonctionnalité
-  n'est un interrupteur, donc ni un assistant vocal ni « éteins tout » ne peut
-  agir sur la chaudière.
+  coché **Autoriser le changement de la consigne de pièce**. Une fois l'option
+  cochée, le tableau de bord, les scènes, les assistants vocaux (Siri /
+  HomeKit…) et le service Thermostat de Gladys peuvent changer la consigne,
+  de 5 à 30 °C. Rien n'allume ni n'éteint la chaudière et rien ne touche
+  l'eau chaude : aucune fonctionnalité n'est un interrupteur, donc « éteins
+  tout » ne peut pas agir sur la chaudière.
 - La consigne va de **5 à 30 °C** (les bornes de la passerelle), au dixième
   de degré : une valeur en dehors est refusée, jamais ramenée dans les bornes.
 - Juste avant d'agir, Gladys relit la liste des chaudières et la chaudière
   elle-même : si la lecture échoue, si la chaudière n'est plus liée ou si le
-  thermostat ne répond plus, rien n'est envoyé ; si la consigne est déjà
-  celle demandée, rien n'est envoyé non plus. Quand la commande ne peut pas
+  thermostat ne répond plus, rien n'est envoyé ; si le thermostat est déjà à
+  cette consigne (et qu'aucune autre consigne à distance n'est en attente),
+  rien n'est envoyé non plus. Quand la commande ne peut pas
   être vérifiée en 3,5 s, rien n'est envoyé et Gladys affiche un échec
   (jamais d'action après un échec affiché). Une fois envoyée, Gladys répond
   au plus 4,3 s après votre commande ; la consigne affichée suit la réponse de

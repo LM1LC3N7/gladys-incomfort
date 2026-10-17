@@ -30,6 +30,14 @@ up to date at the end of every milestone.
       on loopback), the decoding against the test data of incomfort-client.
       **Never tested on a real gateway.** No Docker on this PC: no e2e test
       in a container.
+- [x] **Review corrections** (2026-10-17): "already set" decided on the
+      thermostat's setpoint (stale overrides of older thermostats); states of
+      a command published without delaying the answer; raw value checked
+      before rounding; late 401 / 429 of a setpoint applied to every path;
+      rotating state budget; `onDeviceUpdated`; bounded retry of the
+      configuration on `connected`; docs on what the option allows (voice
+      assistants, Thermostat service) and on `.local` names; "Hot water
+      function" label.
 - [ ] **Milestone 2 — real gateway** (a tester with a Lan2RF): record real
       answers as fixtures (credentials removed), fix what differs. To check
       first:
@@ -41,8 +49,14 @@ up to date at the end of every milestone.
     (`room_set_ovr_N`), and how long the thermostat takes to show it;
   - thermostats that keep the override after a change by hand (the "legacy
     setpoint status" option of Home Assistant): publish the setpoint instead?
-  - concurrent requests: the reading loop and a command may hit the gateway
-    at the same time; serialize them if the gateway does not cope;
+  - concurrent requests: the reading loop and a scan (Discovery) may run
+    while a command reads and sends (the command's reading drops the round,
+    but the requests overlap on the gateway); serialize every request if the
+    gateway does not cope;
+  - the pace of the reading against a slow Lan2RF: incomfort-client waits up
+    to 20 s per request; here 10 s per request, a round of 8 boilers can take
+    up to 90 s (the next round waits for it): measure, and widen the interval
+    if a gateway is that slow;
   - display codes not in the list (logged as "Unknown state (code N)").
 
 ## Decisions
@@ -68,6 +82,19 @@ up to date at the end of every milestone.
   the command; the setpoint request must leave before 3.5 s
   (`COMMAND_BUDGET_MS`) or it is not sent. Commands are serialized globally
   (one gateway, Home Assistant runs one climate update at a time).
+- **"Already set"** (nothing sent): only when the thermostat's own setpoint
+  is already T AND the override is invalid or equal to T. Never on the shown
+  target: an older thermostat keeps a stale override after a change by hand
+  (setpoint 18, override 20, a command of 20 must be sent).
+- **Answer to Gladys first**: the states of a command are published without
+  waiting (a late answer shows a failure and looks like a manual override to
+  the Thermostat service of the core).
+- **Setpoint value**: the raw value is checked in 5-30 before rounding
+  (30.04 and 4.95 refused).
+- **State budget**: when a round exceeds what is left of the minute, the cut
+  rotates (the next cut starts where the last one stopped).
+- **Configuration unreadable on `connected`**: asked again 3 times (30 s,
+  60 s, 120 s) on the app's timers, then an error is logged.
 - **Setpoint shown**: the override if valid (5-30 °C), else the thermostat's
   setpoint, like Home Assistant's default. The value published after a
   command is the one the gateway answers, never the one asked.

@@ -106,6 +106,7 @@ export function createFakeGateway({ protect = false } = {}) {
         const setpoint = Number(url.searchParams.get('setpoint'));
         fake.setpoints.push({ index, room, setpoint });
         if (fake.setpointGate) await fake.setpointGate;
+        if (fake.lateStatus) return json(fake.lateStatus, 'late failure');
         const value = setpoint / 10 + 5;
         const raw = Math.round(value * 100);
         data[`room_set_ovr_${room}_msb`] = Math.floor(raw / 256);

@@ -70,6 +70,9 @@ const badge = (gladys, device) =>
     ?.transport;
 const poll = (timers) => timers.run((ms) => ms === INTERVALS.POLL_MS);
 const tick = () => new Promise((resolve) => setImmediate(resolve));
+const settle = async () => {
+  for (let i = 0; i < 10; i += 1) await tick();
+};
 
 test('start: Discovery gets the boiler and its room; states, badges, status', async () => {
   const { gladys, timers } = await setup();
@@ -279,6 +282,7 @@ test('allowed: the state is read again, then the setpoint sent and published', a
     gateway.requests.slice(sent).map((r) => `${r.path}${r.query}`),
     ['/heaterlist.json', '/data.json?heater=0', '/data.json?heater=0&thermostat=0&setpoint=160'],
   );
+  await settle();
   assert.equal(state(gladys, room(), 'target'), 21);
 });
 
@@ -287,6 +291,121 @@ test('the setpoint already there: nothing sent', async () => {
   const ack = await setpoint(gladys, 18);
   assert.equal(ack.success, true);
   assert.equal(gateway.setpoints.length, 0);
+});
+
+test('a stale override of an older thermostat: the command is still sent', async () => {
+  const gateway = createFakeGateway();
+  // Set by hand to 18 on the thermostat, an old remote override of 20 kept.
+  gateway.heaters[0] = heaterData({
+    rooms: { 1: { temperature: 19, setpoint: 18, override: 20 } },
+  });
+  const { gladys } = await setup({ gateway, config: { allow_setpoint: true } });
+  assert.equal(state(gladys, room(), 'target'), 20, 'shown like Home Assistant');
+  const ack = await setpoint(gladys, 20);
+  assert.equal(ack.success, true, ack.error);
+  assert.deepEqual(
+    gateway.setpoints.map((s) => s.setpoint),
+    [150],
+  );
+});
+
+test('the answer to Gladys never waits for the publication of the states', async () => {
+  const { gladys, app } = await setup({ config: { allow_setpoint: true } });
+  let release;
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  const publish = app.gladys.publishChangedStates.bind(app.gladys);
+  app.gladys.publishChangedStates = async (...args) => {
+    await gate;
+    return publish(...args);
+  };
+  const ack = await setpoint(gladys, 21);
+  assert.equal(ack.success, true, 'answered while the states are still on their way');
+  release();
+  await settle();
+  assert.equal(state(gladys, room(), 'target'), 21);
+});
+
+test('the raw value is checked before rounding', async () => {
+  const { gladys, gateway } = await setup({ config: { allow_setpoint: true } });
+  for (const value of [30.04, 4.95]) {
+    const ack = await setpoint(gladys, value);
+    assert.equal(ack.success, false, String(value));
+  }
+  const ack = await setpoint(gladys, 20.04);
+  assert.equal(ack.success, true);
+  assert.deepEqual(
+    gateway.setpoints.map((s) => s.setpoint),
+    [150],
+    'rounded to 20.0 once in range',
+  );
+});
+
+test('a late 401 of a setpoint blocks every path', async () => {
+  const { gladys, gateway, timers } = await setup({ config: { allow_setpoint: true } });
+  let release;
+  gateway.setpointGate = new Promise((resolve) => {
+    release = resolve;
+  });
+  const pending = setpoint(gladys, 22);
+  for (let i = 0; i < 10 && gateway.setpoints.length === 0; i += 1) await tick();
+  await timers.run((ms) => ms === COMMAND_ACK_MS);
+  assert.equal((await pending).success, true);
+  gateway.lateStatus = 401; // the answer of the setpoint comes back 401
+  release();
+  await settle();
+  assert.match(gladys.fake.connectionStatus.message.en, /asks for a user name and password/);
+  assert.equal(running.blocked, true);
+});
+
+test('a device updated in Gladys gets its states and badge again', async () => {
+  const { gladys } = await setup();
+  const before = gladys.fake.transports.length;
+  await gladys.fake.deviceUpdated(heater());
+  await settle();
+  assert.ok(gladys.fake.transports.length > before, 'badge published again');
+  assert.equal(badge(gladys, heater()), 'local');
+});
+
+test('the state budget: a cut rotates, no feature held back for ever', async () => {
+  const { gladys, app, timers } = await setup();
+  app.gladys.forgetPublishedStates();
+  app.budget.remaining = () => 3;
+  const seen = new Set();
+  const from = gladys.fake.states.length;
+  for (let i = 0; i < 6; i += 1) {
+    app.gladys.forgetPublishedStates();
+    await poll(timers);
+  }
+  for (const s of gladys.fake.states.slice(from)) seen.add(s.device_feature_external_id);
+  assert.ok(gladys.fake.states.length - from <= 18, 'never more than the budget per round');
+  const all = [...heater().features, ...room().features].map((f) => f.external_id);
+  assert.ok(
+    all.every((id) => seen.has(id)),
+    'every feature published at some round',
+  );
+});
+
+test('the configuration unreadable on connected: asked again, bounded', async () => {
+  const gateway = createFakeGateway();
+  const { gladys, timers } = await setup({ gateway });
+  await gladys.disconnect();
+  const getConfig = gladys.getConfig.bind(gladys);
+  let calls = 0;
+  let failures = 0;
+  gladys.getConfig = async () => {
+    calls += 1;
+    if (calls === 1) return getConfig(); // the fake's own resync in connect()
+    failures += 1;
+    throw new Error('Gladys busy');
+  };
+  await gladys.connect();
+  assert.deepEqual(timers.delays(), [30_000]);
+  for (let i = 0; i < 6; i += 1) await timers.run();
+  assert.equal(failures, 4, 'one read and three retries, then it stops');
+  assert.deepEqual(timers.delays(), []);
+  gladys.getConfig = getConfig;
 });
 
 test('out of range, not a number, unknown feature: refused, never clamped', async () => {

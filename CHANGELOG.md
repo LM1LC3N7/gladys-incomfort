@@ -16,7 +16,7 @@ the notes of the version's GitHub Release.
   local Lan2RF (InComfort / InTouch) gateway, plain HTTP, optional user name
   and password (`/protect/` paths, basic authentication) for newer gateways.
 - One device per boiler, keyed by its serial: heating water temperature,
-  pressure (bar), hot water temperature, burner, pump, hot water, fault
+  pressure (bar), hot water temperature, burner, pump, hot water function, fault
   (read only), status and fault in words (French or English).
 - One device per room thermostat: room temperature, setpoint, heating.
 - Room setpoint command, off by default (`allow_setpoint`), 5 to 30 °C,
